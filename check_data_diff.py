@@ -68,6 +68,7 @@ def process_intersection(intersection_id, visited, output_path):
 	similarity, diff, q_main1, q_main2, text1, text2 = calculate_similarity_and_diff(data1_content, data2_content)
 	if similarity < 0.9 and len(text1)<len(text2):
 		res_dict = {
+			'id': data1_content['id'],
 			'exam_id': data2_content['exam_id'],
 			'problem_id': data2_content['problem_id'],
 			'similarity': similarity,
@@ -95,7 +96,7 @@ parser.add_argument('--dir1', type=str, default="/fs-computility/llm/shared/leiz
 parser.add_argument('--dir2', type=str,
 					default="/fs-computility/llm/shared/huhanglei/math_equation/data_filter/replace_data_3",
 					help='Path to the second directory')
-parser.add_argument('--output_path', type=str, default="output/diff_xes_clean_0524.jsonl",
+parser.add_argument('--output_path', type=str, default="output/diff.jsonl",
 					help='Path to the output file')
 parser.add_argument('--workers', type=int, default=5, help='Number of workers')
 parser.add_argument('--is_sample', type=bool, default=False, help='Whether to sample the result')

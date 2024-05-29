@@ -81,7 +81,7 @@ def ensure_output(output_path):
 	# Initialize output file
 	if output_path:
 		if not os.path.exists(output_path):
-			os.makedirs(os.path.dirname(output_path))
+			os.makedirs(os.path.dirname(output_path),exist_ok=True)
 			# touch output_path
 			open(output_path, 'a').close()
 
