@@ -6,7 +6,9 @@ export DIR2="/fs-computility/llm/shared/huhanglei/math_equation/data_filter/repl
 export OUTPUT_PATH="output/diff_all.jsonl"
 export EXAMPLE_DIFF_PATH="output/example_diff.jsonl"
 export AGENT_OUTPUT_PATH="output/agent_diff.jsonl"
+export AGENT_REPORT_PATH="output/agent_report.jsonl"
 export WORKERS=30
+export AGENT_WORKERS=2 # 太大会超过LLM单位时间内请求限制
 export IS_SAMPLE=false
 
 # 运行 Python 脚本
@@ -24,5 +26,5 @@ python3 sample_example_diff.py \
 python3 agents/check_diff_agents.py \
 	--input_path="$EXAMPLE_DIFF_PATH" \
 	--output_path="$AGENT_OUTPUT_PATH" \
-	--workers="$WORKERS" \
-
+	--report_file="$AGENT_REPORT_PATH" \
+	--workers="$AGENT_WORKERS" \

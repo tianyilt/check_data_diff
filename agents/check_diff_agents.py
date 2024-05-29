@@ -7,6 +7,7 @@ from agents.check_diff_data_loader import DiffData
 from agents.state_manager import StateManager
 import argparse
 import re
+import time
 from collections import defaultdict
 
 API_KEY = "eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MDA0ODI2NyIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTcxNjQyODU5MywiY2xpZW50SWQiOiJtcXprcGxtbnc5N29wa28zNmpxaiIsInBob25lIjoiMTg5NjQ5MDc4OTAiLCJ1dWlkIjoiOWU2ZjQ2NjgtNWUwOS00MDJiLThhNzUtZDgwYzMyMDU1M2ExIiwiZW1haWwiOiJsaWFuZ3RpYW55aUBwamxhYi5vcmcuY24iLCJleHAiOjE3MzE5ODA1OTN9.efJL1BzGBG_VaTUIw8sdz22f3Bth648cAqQRzOibubcRS8xUVQiT_t5orwjA34voroWRB15PX_-zVzvfMasLiw"
@@ -28,21 +29,49 @@ class CheckDiffClient:
 		self.report_file = report_file
 		ensure_output(self.report_file)
 
-	def build_prompt(self, diff_data, q_main1, q_main2):
-		main_question = f"""你是个数据分析师, 需要分析改进后的数据q_main2和原始数据q_main1的差异, 字符的差异显示在了diff_data. 你需要分析并评价一下内容
-change_summary: 概括修改了什么
-score: 评价修改后的数据的得分 范围-5到5  -5表示q_main2的数据比q_main1的数据更差, 5表示q_main2的数据比q_main1的数据更好
+# 	def build_prompt(self, diff_data, q_main1, q_main2):
+# 		main_question = f"""你是个数据分析师, 需要分析改进后的数据q_main2和原始数据q_main1的差异, 字符的差异显示在了diff_data. 你需要分析并评价一下内容
+# change_summary: 概括修改了什么
+# 题目相关度（是否是同一个题目）: 相似度评分范围1-10
+# 格式规范（公式，表格，换行等）: 只评价是否有提升, 分数范围-1, 0, 1
+# 题目完整性（多余删除等）: 只评价是否有提升, 分数范围-1, 0, 1
+#
+# 数据: diff_data:{diff_data}, q_main1:{q_main1}, q_main2:{q_main2}
+# """
+# 		example_output = """请严格按照以下格式输出
+# ```
+# {
+# "change_summary": "修改了什么",
+# "题目相关度": int,
+# "格式规范": int,
+# "题目完整性": int
+# }
+# ```
+# 不要有多余的前缀和后缀解释,现在begin with following:
+# {"change_summary":
+# """
+# 		prompt = main_question + example_output
+# 		return prompt
 
-数据: diff_data:{diff_data}, q_main1:{q_main1}, q_main2:{q_main2}
+	def build_prompt(self, diff_data, q_main1, q_main2):
+		main_question = f"""You are a data analyst. You need to analyze the differences between the improved data q_main2 and the original data q_main1. The character differences are shown in diff_data. You need to analyze and evaluate the following aspects:
+change_summary: Summarize what was changed,这部分用中文描述
+relevance_score: Rate the relevance to the original topic, score range 1-10
+format_improvement: Evaluate if the formatting (formulas, tables, line breaks, etc.) has improved and if it looks more like a standard test question, score range -1, 0, 1
+completeness_improvement: Evaluate if the completeness (unnecessary deletions, etc.) has improved and if it looks more like a standard test question, score range -1, 0, 1
+
+Data: diff_data:{diff_data}, q_main1:{q_main1}, q_main2:{q_main2}
 """
-		example_output = """请严格按照以下格式输出
+		example_output = """Please strictly follow the format below to output
 ```
 {
-"change_summary": "修改了什么",
-"score": int
+"change_summary": "What was changed",
+"relevance_score": int,
+"format_improvement": int,
+"completeness_improvement": int
 }
 ```
-不要有多余的前缀和后缀解释,现在begin with following:
+Do not include any extra prefixes or suffixes. Now begin with the following:
 {"change_summary":
 """
 		prompt = main_question + example_output
@@ -69,7 +98,7 @@ score: 评价修改后的数据的得分 范围-5到5  -5表示q_main2的数据�
 			res_dict["diff_prompt"] = PROMPT
 			res_dict["id"] = cur_data["id"]
 			res_dict["other_info"] = cur_data
-			if len(agent_score['change_summary']) >0:
+			if len(agent_score['change_summary']) > 0:
 				with open(self.output_file, "a", encoding="utf-8") as f:
 					f.write(json.dumps(res_dict, ensure_ascii=False) + "\n")
 
@@ -94,8 +123,14 @@ score: 评价修改后的数据的得分 范围-5到5  -5表示q_main2的数据�
 			# 如果解析失败，返回默认值
 			return {
 				"change_summary": "",
-				"score": 0
+				"relevance_score": 0,
+				"format_improvement": 0,
+				"completeness_improvement": 0
 			}
+			# return {
+			# 	"change_summary": "",
+			# 	"score": 0
+			# }
 
 	async def call_llm(self, prompt):
 
@@ -130,7 +165,6 @@ score: 评价修改后的数据的得分 范围-5到5  -5表示q_main2的数据�
 
 		async def producer():
 			# check self.data.data[i]["id"] KeyError
-
 
 			for i in range(0, len(self.data.data)):
 				if 'id' not in self.data.data[i].keys():
@@ -171,27 +205,50 @@ score: 评价修改后的数据的得分 范围-5到5  -5表示q_main2的数据�
 
 		await asyncio.gather(*consumers, return_exceptions=True)
 		pbar.close()
-
 		# Aggregate results
 		better_count = 0
+		improvement_details = {
+			"relevance": {"better": 0, "worse": 0},
+			"format": {"better": 0, "worse": 0},
+			"completeness": {"better": 0, "worse": 0}
+		}
 		total_num = len(results)
 
 		for result in results:
-			if result["score"] >= 0:
+			if result["relevance_score"] > 5:
 				better_count += 1
+				improvement_details["relevance"]["better"] += 1
+			elif result["relevance_score"] < 5:
+				improvement_details["relevance"]["worse"] += 1
+
+			if result["format_improvement"] > 0:
+				improvement_details["format"]["better"] += 1
+			elif result["format_improvement"] < 0:
+				improvement_details["format"]["worse"] += 1
+
+			if result["completeness_improvement"] > 0:
+				improvement_details["completeness"]["better"] += 1
+			elif result["completeness_improvement"] < 0:
+				improvement_details["completeness"]["worse"] += 1
+
+		better_ratio = better_count / total_num
 
 		print(f"q_main2比q_main1好的比例为 {better_count}/{total_num}")
 		prompt = f"""下面是评分结果:{results}
 你要对输出结果做个汇总, 汇总内容包括:
-q_main2比q_main1好的比例为 {better_count}/{total_num}
+q_main2比q_main1好的比例为 {better_count}/{total_num} ({better_ratio:.2%})
 q_main2比q_main1改进的点有:
-[需要结合score和change_summary中正向评价新句子的内容进行总结]
+[需要结合relevance_score, format_improvement和completeness_improvement中正向评价新句子的内容进行总结]
 q_main2不如q_main1的点有:
-[需要结合score和change_summary中负向评价新句子的内容进行总结]
+[需要结合relevance_score, format_improvement和completeness_improvement中负向评价新句子的内容进行总结]
+改进详情:
+- 题目相关度: 更好的次数 {improvement_details["relevance"]["better"]}, 更差的次数 {improvement_details["relevance"]["worse"]}
+- 格式规范: 更好的次数 {improvement_details["format"]["better"]}, 更差的次数 {improvement_details["format"]["worse"]}
+- 题目完整性: 更好的次数 {improvement_details["completeness"]["better"]}, 更差的次数 {improvement_details["completeness"]["worse"]}
 """
 		print(prompt)
 		with open(self.report_file, "w", encoding="utf-8") as f:
-			f.write("report_prompt:\n"+prompt + "\n\n\n")
+			f.write("report_prompt:\n" + prompt + "\n\n\n")
 
 		report = await self.call_llm(prompt)
 		print(report)
@@ -200,6 +257,34 @@ q_main2不如q_main1的点有:
 
 		return results
 
+# 		# Aggregate results
+# 		better_count = 0
+# 		total_num = len(results)
+#
+# 		for result in results:
+# 			if result["score"] > 0:
+# 				better_count += 1
+#
+# 		print(f"q_main2比q_main1好的比例为 {better_count}/{total_num}")
+# 		prompt = f"""下面是评分结果:{results}
+# 你要对输出结果做个汇总, 汇总内容包括:
+# q_main2比q_main1好的比例为 {better_count}/{total_num}
+# q_main2比q_main1改进的点有:
+# [需要结合score和change_summary中正向评价新句子的内容进行总结]
+# q_main2不如q_main1的点有:
+# [需要结合score和change_summary中负向评价新句子的内容进行总结]
+# """
+# 		print(prompt)
+# 		with open(self.report_file, "w", encoding="utf-8") as f:
+# 			f.write("report_prompt:\n" + prompt + "\n\n\n")
+#
+# 		report = await self.call_llm(prompt)
+# 		print(report)
+# 		with open(self.report_file, "a", encoding="utf-8") as f:
+# 			f.write(json.dumps(report, ensure_ascii=False) + "\n")
+#
+# 		return results
+
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument("--input_file", type=str, default="output/example_diff.jsonl", help="Path to the input file")
@@ -207,17 +292,19 @@ argparser.add_argument("--output_file", type=str, default="output/check_agent.js
 					   help="Path to the output file")
 argparser.add_argument("--report_file", type=str, default="output/report.txt", help="Path to the report file")
 argparser.add_argument("--workers", type=int, default=1, help="Number of workers")
-argparser.add_argument("--is_debug", type=bool, default=True, help="Whether to debug")
+argparser.add_argument("--is_debug", type=bool, default=False, help="Whether to debug")
 args = argparser.parse_args()
 
 input_file = args.input_file
 output_file = args.output_file
 report_file = args.report_file
+#给report_file加时间戳
+report_file = report_file.split(".")[0] + "_"+time.strftime("%Y%m%d%H%M%S", time.localtime()) + ".txt"
 is_debug = args.is_debug
 
 diff_data = DiffData(input_file)
 sm = StateManager(output_file)
-if is_debug: #debug模式下不记录已访问的id
+if is_debug:  # debug模式下不记录已访问的id
 	sm.visited_ids = set([])
 
 check_diff_client = CheckDiffClient(diff_data, sm, output_file, report_file)
