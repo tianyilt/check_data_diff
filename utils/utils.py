@@ -35,7 +35,7 @@ def compare_fields(data1_content, data2_content):
 	return differences
 
 
-def read_jsonl(file_path, progress_bar, sample_num=None):
+def read_jsonl(file_path, progress_bar=None, sample_num=None):
 	"""
 	Read jsonl file and update the progress bar.
 	:param file_path: Path to the jsonl file.
@@ -52,7 +52,8 @@ def read_jsonl(file_path, progress_bar, sample_num=None):
 		for line in lines:
 			# if 'null\n' not in line:
 			data.append(json.loads(line))
-			progress_bar.update(1)
+			if progress_bar:
+				progress_bar.update(1)
 	return data
 
 
@@ -117,3 +118,11 @@ def get_q_main(content):
 	for option in options:
 		res += option
 	return res
+
+
+# avoid prompt too long
+def truncate_str(str, max_len = 4000):
+	if len(str) > max_len:
+		return str[:max_len]
+	else:
+		return str

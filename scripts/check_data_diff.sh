@@ -5,6 +5,7 @@ export DIR1="/fs-computility/llm/shared/leizhikai/kaoshi/xueersi/XES_V0524_Clean
 export DIR2="/fs-computility/llm/shared/huhanglei/math_equation/data_filter/replace_data_3"
 export OUTPUT_PATH="output/diff_all.jsonl"
 export EXAMPLE_DIFF_PATH="output/example_diff.jsonl"
+export AGENT_OUTPUT_PATH="output/agent_diff.jsonl"
 export WORKERS=30
 export IS_SAMPLE=false
 
@@ -19,4 +20,9 @@ python3 check_data_diff.py \
 python3 sample_example_diff.py \
   --output_path="$OUTPUT_PATH" \
   --example_diff_path="$EXAMPLE_DIFF_PATH" \
+
+python3 agents/check_diff_agents.py \
+	--input_path="$EXAMPLE_DIFF_PATH" \
+	--output_path="$AGENT_OUTPUT_PATH" \
+	--workers="$WORKERS" \
 
